@@ -15,7 +15,7 @@ class Map {
 		this.grid = [
 			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 			[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
-			[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1],
+			[1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1],
 			[1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1],
 			[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1],
 			[1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1],
@@ -41,8 +41,11 @@ class Map {
 	}
 	//serve para verificar se onde o personagem esta é uma parede ou não
 	//o  | 0 serve para arredondar os valores para eu verificar no mapa
+	// line == y, colum  == x
 	isWall(line, colum) {
-		console.log(line, colum);
+		if (colum < 0 || line < 0)
+			return true;
+		//console.log(line, colum);
 		if (this.grid[line / TILE_SIZE | 0][colum / TILE_SIZE | 0] == 1)
 			return true;
 		return false;
@@ -56,9 +59,21 @@ class Player {
 		this.radius = 3; //size os player in pixels
 		this.directionPlayer = 0; //-1 left, 1 right
 		this.walkPlayer = 0; //-1 back, 1 front
-		this.rotationAngle = Math.PI / 2; // onde o personagem começa aprontando;
+		this.rotationAngle = (Math.PI * 3)/ 2; // onde o personagem começa aprontando;
 		this.moveSpeed = 3 //quantity of pixels the player move of each movemente
 		this.rotationSpeed = 2 * (Math.PI / 180); //rotation speed in degres, so we need to convert by radian
+		this.directionX = 1; //1 add x, -1 decrease
+		this.directionY = 1; //1 add y, -1 decrease
+	}
+	updateDirections(posAngle){
+		if (posAngle > 0 && posAngle < Math.PI)
+			this.directionY = 1;
+		else
+			this.directionY = -1;
+		if (posAngle > Math.PI / 2 && posAngle < (Math.PI * 3) / 2)
+			this.directionX = 1
+		else
+			this.directionX = -1;
 	}
 	//atualiza a posição do personagem com base no angulo (rotationAngle), achando o coseno para o X, e o seno para o Y
 	update() {
@@ -84,14 +99,39 @@ class Player {
 class Ray {
 	constructor(rayAngle) {
 		this.rayAngle = rayAngle;
+		this.intersectionY = 0;
+		this.intersectionX = 0;
 	}
 	//printa uma linha com base no angulo do ray que ta sendo verificado (rayAngle).
 	render() {
-		stroke("green");
-		line(player.x,
-			player.y,
+		stroke("purple")
+		line(player.x, player.y,
 			player.x + Math.cos(this.rayAngle) * 30,
 			player.y + Math.sin(this.rayAngle) * 30);
+		stroke("green");
+		line(player.x, player.y,
+			// player.x + Math.cos(this.rayAngle) * (this.intersectionX) ,
+			// player.y + Math.sin(this.rayAngle) * (this.intersectionY) );
+		 	this.intersectionX + Math.cos(this.rayAngle), this.intersectionY + Math.sin(this.rayAngle)); 
+			
+	}
+	cast(){
+		if(this.rayAngle < Math.PI * 2 && this.rayAngle > Math.PI){
+			this.intersectionY = (player.y / TILE_SIZE | 0) * TILE_SIZE;
+			this.intersectionX = player.x + (player.y - this.intersectionY) / Math.tan(this.rayAngle);
+			while(!grid.isWall(this.intersectionY - 0.4, this.intersectionX)){
+				this.intersectionY -= TILE_SIZE;
+				if (this.rayAngle < Math.PI * 3 / 2)
+				//console.log(TILE_SIZE / Math.tan(this.rayAngle))
+					this.intersectionX -= TILE_SIZE / Math.tan(this.rayAngle)
+				else
+					this.intersectionX += TILE_SIZE / Math.tan(this.rayAngle) * -1
+			}
+			console.log(this.intersectionX, this.intersectionY, player.x, player.y + "dir x" + player.directionX)
+		}
+		else{
+			//todo
+		}
 	}
 }
 
@@ -128,8 +168,10 @@ function castAllRays() {
 
 	//aqui reseta a lista para vazio novamente;
 	raysLst = [];
-	for (let i = 0; i < NUM_RAYS; i++) {
+	for (let i = 0; i < 1; i++) {
 		var rayPoint = new Ray(posAngle);
+		player.updateDirections(posAngle);
+		rayPoint.cast();
 		raysLst.push(rayPoint);
 		columsId++;
 		//esse calculo serve para mudar um pouco o angulo para o proximo ray
