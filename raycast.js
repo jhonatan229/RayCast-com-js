@@ -67,8 +67,10 @@ class Player {
 		this.directionX = 1; //1 add x, -1 decrease
 		this.directionY = 1; //1 add y, -1 decrease
 	}
+	//serve para, dependendo do angulo, setar a direção do x e y
+	//x = -1 o player ta olhando para a esquerda; 1 ele ta olhando para a direita
+	//y = -1 o player ta olhando para cima; 1 ele ta olhando para baixo
 	updateDirections(posAngle) {
-		//console.log("caius: " + posAngle)
 		if (posAngle > 0 && posAngle < Math.PI)
 			this.directionY = 1;
 		else
@@ -94,63 +96,60 @@ class Player {
 		noStroke();
 		fill("yellow");
 		circle(this.x, this.y, this.radius);
-		//stroke("red");
-		//line(this.x, this.y, this.x + Math.cos(this.rotationAngle) * 15, this.y + Math.sin(this.rotationAngle) * 15);
 	}
 }
 
 class Ray {
 	constructor(angle) {
-		this.rayAngle = normalizeAngle(angle);
-		this.intersectionHY = 0;
-		this.intersectionHX = 0;
-		this.intersectionVY = 0;
-		this.intersectionVX = 0;
-		this.wallPosx = 0;
-		this.wallPosy = 0;
-		this.distance = 0;
+		this.rayAngle = normalizeAngle(angle);//o angulo do raio, ja calibrado, caso ele passe de pi * 2 ou 0
+		this.intersectionHY = 0; //Onde é guardado a posição da primeira parede horizontal na posição x
+		this.intersectionHX = 0; //Onde é guardado a posição da primeira parede horizontal na posição y
+		this.intersectionVY = 0; //Onde é guardado a posição da primeira parede vertical na posição x
+		this.intersectionVX = 0; //Onde é guardado a posição da primeira parede vertical na posição y
+		this.wallPosx = 0; // quarda a posição x da primeira ocorrencia de parede (horizontal ou vertical)
+		this.wallPosy = 0; // quarda a posição y da primeira ocorrencia de parede (horizontal ou vertical)
+		this.distance = 0; // guarda a distancia da primeira ocorrencia da parede entre o player
 		this.wallVertHit = false
 	}
 	//printa uma linha com base no angulo do ray que ta sendo verificado (rayAngle).
 	render() {
-		//stroke("purple")
-		// line(player.x, player.y,
-		// 	player.x + Math.cos(this.rayAngle) * 30,
-		// 	player.y + Math.sin(this.rayAngle) * 30);
-		// stroke("green");
-		// line(player.x, player.y,
-		// 	this.intersectionHX, this.intersectionHY);
-		// stroke("yellow");
-		// line(player.x, player.y,
-		// 	this.intersectionVX, this.intersectionVY);
 		stroke("red");
 		line(player.x, player.y,
 			this.wallPosx, this.wallPosy);
-		//console.log(this.rayAngle, this.wallPosx, this.wallPosy)
 	}
 	castHorizontal(wallLocation) {
-		let ystep;
-		let xstep;
-		this.intersectionHY = (player.y / TILE_SIZE | 0) * TILE_SIZE;
+		let ystep; // sera a quantidade de espaço que cada intersecção faz entre uma e outra, esse espaço é sempre o mesmo
+		let xstep; // sera a quantidade de espaço que cada intersecção faz entre uma e outra, esse espaço é sempre o mesmo
+		this.intersectionHY = (player.y / TILE_SIZE | 0) * TILE_SIZE; // serve para pegarmos a intersecção que esta acima do player
+		//se o player estiver olhando para baixo, acrescentamos mais 32 (TILE_SIZE) ao intersection
+		//o ystep vai valer +32 se ele estiver olhando para baixo e -32 se ele estiver olhando para cima, isso serve para irmos acrescentando ou diminuindo o intersectionHY mais para frente
 		if (player.directionY == 1) {
 			this.intersectionHY += TILE_SIZE
 			ystep = TILE_SIZE
 		} else {
 			ystep = TILE_SIZE * -1
 		}
+		// a linhade baixo serve para pegarmos o cateto adjacente do nosso triangulo, é com ele que conseguitemos a posição x da nossa intersecção
 		this.intersectionHX = player.x + (this.intersectionHY - player.y) / Math.tan(this.rayAngle);
-		xstep = TILE_SIZE / Math.tan(this.rayAngle);
+		//xstep vai ser sempre acrescentado ou decrementado do intersextionHX dependendo da direção do nosso player
+		xstep = TILE_SIZE / Math.tan(this.rayAngle); // é o distanciamento entre as intersecções, ele sempre é o mesmo 
 		xstep *= (player.directionX == -1 && xstep > 0) ? -1 : 1
 		xstep *= (player.directionX == 1 && xstep < 0) ? -1 : 1
+		//a cada interesecção que ele passa, acrescenta mais um ou menos um pixel no intersectionHY para entrarmos na box, e a função "isWall"
+		//verificar se essa box é uma uma parede ou não, se não for, ele vai acrescentar mais ou menos (depende para onde o player estiver olhando)
+		//até nossa proxima intersecção
 		while (!grid.isWall(this.intersectionHY + player.directionY, this.intersectionHX)) {
 			this.intersectionHX += xstep;
 			this.intersectionHY += ystep;
 		}
 	}
+	//a função faz a mesma coisa da de cima, entretanto, ele ta olhando para as paredes verticais
+	//logo o calculo não é mais para achar o cateto adjacente, mas sim o cateto oposto, e sempre usamos ele para acrescentarmos ou diminuitmos o
+	//intersectionVX com o xstep
 	castVertical() {
 		let ystep;
 		let xstep;
-		this.intersectionVX = (player.x / TILE_SIZE | 0) * TILE_SIZE;
+		this.intersectionVX = (player.x / TILE_SIZE | 0) * TILE_SIZE; // achando o cateto oposto do nosso triangulo
 		if (player.directionX == 1) {
 			this.intersectionVX += TILE_SIZE
 			xstep = TILE_SIZE
@@ -165,29 +164,18 @@ class Ray {
 			this.intersectionVX += xstep;
 			this.intersectionVY += ystep;
 		}
-		//console.log(this.intersectionVX, this.intersectionVY)
 	}
 	cast() {
-		player.updateDirections(this.rayAngle);
+		player.updateDirections(this.rayAngle); // atualizamos, a cada raio, a direção de x e y
 		var difHorizontal
 		var difVertical;
-		this.castHorizontal()
-		this.castVertical()
-		difHorizontal = catDifBetween(player.x, player.y, this.intersectionHX, this.intersectionHY);
-		difVertical = catDifBetween(player.x, player.y, this.intersectionVX, this.intersectionVY);
-		//console.log("horizontal: " + this.intersectionHX, this.intersectionHY + "vertical: " + this.intersectionVX, this.intersectionVY)
-		//console.log("horizontal: " +( this.intersectionHX - player.x),( this.intersectionHY - player.y)
-		//+ "\nvertical: " + (this.intersectionVX - player.x), (this.intersectionVY - player.y))
-		//var difHorizontalX = this.intersectionHX - player.x
-		//var difHorizontalY = this.intersectionHY - player.y
-		//var difVerticalX = this.intersectionVX - player.x
-		//var difVerticalY = this.intersectionVY - player.y
-		//difHorizontalX *= (difHorizontalX < 0) ? -1 : 1
-		//difHorizontalY *= (difHorizontalY < 0) ? -1 : 1
-		//difVerticalX *= (difVerticalX < 0) ? -1 : 1
-		//difVerticalY *= (difHorizontalX < 0) ? -1 : 1
+		this.castHorizontal() // achamos a parede horizontal mais proxima
+		this.castVertical() //achamos a parede vertical mais proxima
+		difHorizontal = catDifBetween(player.x, player.y, this.intersectionHX, this.intersectionHY); // achamos o tamanho do nosso raio até a parede horizontal usando o teorema de pitagoras
+		difVertical = catDifBetween(player.x, player.y, this.intersectionVX, this.intersectionVY); // achamos o tamanho do nosso raio até a parede vertical usando o teorema de pitagoras
+		//verificamos qual a parede esta mais proxima do player, se é a horizontal ou a vertical, dependendo do resultado
+		//sera armazenado no wallPosx e y para podermos printar na tela
 		if (difHorizontal > difVertical) {
-			//if ((this.intersectionHX + this.intersectionHY ) > (this.intersectionVX + this.intersectionVY)) {
 			this.wallPosx = this.intersectionVX
 			this.wallPosy = this.intersectionVY
 			this.distance = difVertical
@@ -205,6 +193,7 @@ var player = new Player();
 var grid = new Map();
 var raysLst = [];
 
+//isso é para resetarmos o angulo, caso ele ultrapasse os limites (PI * 2 OU 0)
 function normalizeAngle(angle) {
 	angle = angle % (Math.PI * 2)
 	if (angle < 0)
@@ -247,7 +236,6 @@ function castAllRays() {
 	raysLst = [];
 	for (let i = 0; i < NUM_RAYS; i++) {
 		var rayPoint = new Ray(posAngle);
-		//console.log(posAngle)
 		rayPoint.cast();
 		raysLst.push(rayPoint);
 		columsId++;
