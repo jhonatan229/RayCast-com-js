@@ -43,10 +43,12 @@ class Map {
 	//o  | 0 serve para arredondar os valores para eu verificar no mapa
 	// line == y, colum  == x
 	isWall(line, colum) {
-		if (colum < 0 || line < 0)
+		if (colum < 0 || line < 0 || line > WINDOW_HEIGHT || colum > WINDOW_WIDTH)
 			return true;
+		line = line / TILE_SIZE | 0
+		colum = colum / TILE_SIZE | 0
 		//console.log(line, colum);
-		if (this.grid[line / TILE_SIZE | 0][colum / TILE_SIZE | 0] == 1)
+		if (this.grid[line][colum] == 1)
 			return true;
 		return false;
 	}
@@ -59,21 +61,22 @@ class Player {
 		this.radius = 3; //size os player in pixels
 		this.directionPlayer = 0; //-1 left, 1 right
 		this.walkPlayer = 0; //-1 back, 1 front
-		this.rotationAngle = (Math.PI * 3)/ 2; // onde o personagem começa aprontando;
+		this.rotationAngle = (Math.PI * 3) / 2; // onde o personagem começa aprontando;
 		this.moveSpeed = 3 //quantity of pixels the player move of each movemente
 		this.rotationSpeed = 2 * (Math.PI / 180); //rotation speed in degres, so we need to convert by radian
 		this.directionX = 1; //1 add x, -1 decrease
 		this.directionY = 1; //1 add y, -1 decrease
 	}
-	updateDirections(posAngle){
+	updateDirections(posAngle) {
+		//console.log("caius: " + posAngle)
 		if (posAngle > 0 && posAngle < Math.PI)
 			this.directionY = 1;
 		else
 			this.directionY = -1;
-		if (posAngle > Math.PI / 2 && posAngle < (Math.PI * 3) / 2)
-			this.directionX = 1
+		if (posAngle >= Math.PI * 0.5 && posAngle <= Math.PI * 1.5)
+			this.directionX = -1
 		else
-			this.directionX = -1;
+			this.directionX = 1;
 	}
 	//atualiza a posição do personagem com base no angulo (rotationAngle), achando o coseno para o X, e o seno para o Y
 	update() {
@@ -99,45 +102,101 @@ class Player {
 class Ray {
 	constructor(rayAngle) {
 		this.rayAngle = rayAngle;
-		this.intersectionY = 0;
-		this.intersectionX = 0;
+		this.intersectionHY = 0;
+		this.intersectionHX = 0;
+		this.intersectionVY = 0;
+		this.intersectionVX = 0;
+		this.wallPosx = 0;
+		this.wallPosy = 0;
 	}
 	//printa uma linha com base no angulo do ray que ta sendo verificado (rayAngle).
 	render() {
-		stroke("purple")
+		//stroke("purple")
+		// line(player.x, player.y,
+		// 	player.x + Math.cos(this.rayAngle) * 30,
+		// 	player.y + Math.sin(this.rayAngle) * 30);
+		// stroke("green");
+		// line(player.x, player.y,
+		// 	this.intersectionHX, this.intersectionHY);
+		// stroke("yellow");
+		// line(player.x, player.y,
+		// 	this.intersectionVX, this.intersectionVY);
+		// stroke("yellow");
 		line(player.x, player.y,
-			player.x + Math.cos(this.rayAngle) * 30,
-			player.y + Math.sin(this.rayAngle) * 30);
-		stroke("green");
-		line(player.x, player.y,
-			// player.x + Math.cos(this.rayAngle) * (this.intersectionX) ,
-			// player.y + Math.sin(this.rayAngle) * (this.intersectionY) );
-		 	this.intersectionX + Math.cos(this.rayAngle), this.intersectionY + Math.sin(this.rayAngle)); 
-			
+			this.wallPosx, this.wallPosy);
+
 	}
-	cast(){
-		if(this.rayAngle < Math.PI * 2 && this.rayAngle > Math.PI){
-			this.intersectionY = (player.y / TILE_SIZE | 0) * TILE_SIZE;
-			this.intersectionX = player.x + (player.y - this.intersectionY) / Math.tan(this.rayAngle);
-			while(!grid.isWall(this.intersectionY - 0.4, this.intersectionX)){
-				this.intersectionY -= TILE_SIZE;
-				if (this.rayAngle < Math.PI * 3 / 2)
-				//console.log(TILE_SIZE / Math.tan(this.rayAngle))
-					this.intersectionX -= TILE_SIZE / Math.tan(this.rayAngle)
-				else
-					this.intersectionX += TILE_SIZE / Math.tan(this.rayAngle) * -1
+	castHorizontal(wallLocation) {
+		let ystep;
+		let xstep;
+		this.intersectionHY = (player.y / TILE_SIZE | 0) * TILE_SIZE;
+		if (player.directionY == 1) {
+			this.intersectionHY += TILE_SIZE
+			ystep = TILE_SIZE
+		} else {
+			ystep = TILE_SIZE * -1
+		}
+		this.intersectionHX = player.x + (this.intersectionHY - player.y) / Math.tan(this.rayAngle);
+		xstep = TILE_SIZE / Math.tan(this.rayAngle);
+		xstep *= (player.directionX == -1 && xstep > 0) ? -1 : 1
+		xstep *= (player.directionX == 1 && xstep < 0) ? -1 : 1
+		while (!grid.isWall(this.intersectionHY + player.directionY, this.intersectionHX)) {
+			this.intersectionHX += xstep;
+			this.intersectionHY += ystep;
+		}
+	}
+	castVertical() {
+		let ystep;
+		let xstep;
+		this.intersectionVX = (player.x / TILE_SIZE | 0) * TILE_SIZE;
+		if (player.directionX == 1) {
+			this.intersectionVX += TILE_SIZE
+			xstep = TILE_SIZE
+		} else {
+			xstep = TILE_SIZE * -1
+		}
+		this.intersectionVY = player.y + (this.intersectionVX - player.x) * Math.tan(this.rayAngle);
+		ystep = TILE_SIZE * Math.tan(this.rayAngle);
+		ystep *= (player.directionY == -1 && ystep > 0) ? -1 : 1
+		ystep *= (player.directionY == 1 && ystep < 0) ? -1 : 1
+		while (!grid.isWall(this.intersectionVY, this.intersectionVX + player.directionX)) {
+			this.intersectionVX += xstep;
+			this.intersectionVY += ystep;
+		}
+		console.log(this.intersectionVX, this.intersectionVY)
+	}
+	cast() {
+		this.wallPosx = 0
+		this.wallPosy = 0
+		this.castHorizontal()
+		this.castVertical()
+		console.log("horizontal: " + this.intersectionHX, this.intersectionHY + "vertical: " + this.intersectionVX, this.intersectionVY)
+		if ((this.intersectionHX + this.intersectionHY ) > (this.intersectionVX + this.intersectionVY)) {
+			if (this.intersectionVX > 0 && this.intersectionVY > 0) {
+				this.wallPosx = this.intersectionVX
+				this.wallPosy = this.intersectionVY
 			}
-			console.log(this.intersectionX, this.intersectionY, player.x, player.y + "dir x" + player.directionX)
 		}
-		else{
-			//todo
+		else {
+			if (this.intersectionHX > 0 && this.intersectionHY > 0) {
+				this.wallPosx = this.intersectionHX
+				this.wallPosy = this.intersectionHY
+			}
 		}
+
 	}
 }
 
 var player = new Player();
 var grid = new Map();
 var raysLst = [];
+
+function normalizeAngle(angle) {
+	angle % Math.PI * 2
+	if (angle < 0)
+		angle = (2 * Math.PI) + angle
+	return angle
+}
 
 function keyPressed() {
 	if (keyCode == UP_ARROW)
@@ -165,10 +224,11 @@ function keyReleased() {
 function castAllRays() {
 	var columsId = 0;
 	var posAngle = player.rotationAngle - (FOV_ANG / 2);
+	posAngle = normalizeAngle(posAngle)
 
 	//aqui reseta a lista para vazio novamente;
 	raysLst = [];
-	for (let i = 0; i < 1; i++) {
+	for (let i = 0; i < NUM_RAYS; i++) {
 		var rayPoint = new Ray(posAngle);
 		player.updateDirections(posAngle);
 		rayPoint.cast();
