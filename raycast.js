@@ -1,4 +1,4 @@
-const TILE_SIZE = 32;
+const TILE_SIZE = 64;
 const MAP_NUM_ROWS = 11;
 const MAP_NUM_COLS = 15;
 
@@ -8,6 +8,9 @@ const FOV_ANG = 60 * (Math.PI / 180);
 
 const COLUMNS_PER_PIXEL = 1;
 const NUM_RAYS = WINDOW_WIDTH / COLUMNS_PER_PIXEL;
+const SCALE_MINIMAP = 0.2
+
+const DISTANCE_PROJ_PLANE = (WINDOW_WIDTH / 2) / Math.tan(FOV_ANG / 2)
 
 class Map {
 	//o construtor da classe map, onde tem a prototipagem do mapa
@@ -28,6 +31,10 @@ class Map {
 	}
 	//passa por cada quadradinho do mapa e printa na tela com o tamanho de cada quadrado (TILE_SIZE)
 	render() {
+		fill("rgba(226, 205, 200, 1)")
+		rect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT / 2)
+		fill("#686261")
+		rect(0, WINDOW_HEIGHT / 2, WINDOW_WIDTH, WINDOW_HEIGHT )
 		for (var i = 0; i < MAP_NUM_ROWS; i++) {
 			for (var j = 0; j < MAP_NUM_COLS; j++) {
 				var tileX = j * TILE_SIZE;
@@ -35,7 +42,7 @@ class Map {
 				var tileColor = this.grid[i][j] == 1 ? "#222" : "#fff";
 				stroke("#222");
 				fill(tileColor);
-				rect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+				rect(SCALE_MINIMAP * tileX, SCALE_MINIMAP * tileY, SCALE_MINIMAP * TILE_SIZE, SCALE_MINIMAP * TILE_SIZE);
 			}
 		}
 	}
@@ -95,12 +102,14 @@ class Player {
 	render() {
 		noStroke();
 		fill("yellow");
-		circle(this.x, this.y, this.radius);
+		circle(SCALE_MINIMAP * this.x, SCALE_MINIMAP * this.y, SCALE_MINIMAP * this.radius);
+
 	}
 }
 
 class Ray {
-	constructor(angle) {
+	constructor(angle, columId) {
+		this.columId = columId
 		this.rayAngle = normalizeAngle(angle);//o angulo do raio, ja calibrado, caso ele passe de pi * 2 ou 0
 		this.intersectionHY = 0; //Onde é guardado a posição da primeira parede horizontal na posição x
 		this.intersectionHX = 0; //Onde é guardado a posição da primeira parede horizontal na posição y
@@ -113,9 +122,11 @@ class Ray {
 	}
 	//printa uma linha com base no angulo do ray que ta sendo verificado (rayAngle).
 	render() {
-		stroke("red");
-		line(player.x, player.y,
-			this.wallPosx, this.wallPosy);
+		var linelengh = (TILE_SIZE / this.distance) * DISTANCE_PROJ_PLANE
+		stroke("#8EF5BF");
+		line(SCALE_MINIMAP * player.x, SCALE_MINIMAP * player.y,
+			SCALE_MINIMAP * this.wallPosx, SCALE_MINIMAP * this.wallPosy);
+		line(this.columId, (WINDOW_HEIGHT / 2) - (linelengh / 2), this.columId, (WINDOW_HEIGHT / 2) + (linelengh / 2))
 	}
 	castHorizontal(wallLocation) {
 		let ystep; // sera a quantidade de espaço que cada intersecção faz entre uma e outra, esse espaço é sempre o mesmo
@@ -235,24 +246,26 @@ function castAllRays() {
 	//aqui reseta a lista para vazio novamente;
 	raysLst = [];
 	for (let i = 0; i < NUM_RAYS; i++) {
-		var rayPoint = new Ray(posAngle);
+		var rayPoint = new Ray(posAngle, columsId);
 		rayPoint.cast();
 		raysLst.push(rayPoint);
 		columsId++;
 		//esse calculo serve para mudar um pouco o angulo para o proximo ray
 		posAngle += FOV_ANG / NUM_RAYS;
+
 	}
 }
 
 function setup() {
 	createCanvas(WINDOW_WIDTH, WINDOW_HEIGHT);
-
 }
 
 //atualiza de segundo em segundo algumas informações, isso acontece antes do "draw"
 function update() {
 	player.update();
 	castAllRays();
+
+	console.log(DISTANCE_PROJ_PLANE)
 }
 
 //printa as coisas na tela 
